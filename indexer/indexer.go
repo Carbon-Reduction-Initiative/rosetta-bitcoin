@@ -22,10 +22,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/coinbase/rosetta-bitcoin/bitcoin"
-	"github.com/coinbase/rosetta-bitcoin/configuration"
-	"github.com/coinbase/rosetta-bitcoin/services"
-	"github.com/coinbase/rosetta-bitcoin/utils"
+	"github.com/coinbase/rosetta-cari/cari"
+	"github.com/coinbase/rosetta-cari/configuration"
+	"github.com/coinbase/rosetta-cari/services"
+	"github.com/coinbase/rosetta-cari/utils"
 
 	"github.com/coinbase/rosetta-sdk-go/asserter"
 	"github.com/coinbase/rosetta-sdk-go/storage/database"
@@ -80,10 +80,10 @@ var (
 type Client interface {
 	NetworkStatus(context.Context) (*types.NetworkStatusResponse, error)
 	PruneBlockchain(context.Context, int64) (int64, error)
-	GetRawBlock(context.Context, *types.PartialBlockIdentifier) (*bitcoin.Block, []string, error)
+	GetRawBlock(context.Context, *types.PartialBlockIdentifier) (*cari.Block, []string, error)
 	ParseBlock(
 		context.Context,
-		*bitcoin.Block,
+		*cari.Block,
 		map[string]*types.AccountCoin,
 	) (*types.Block, error)
 }
@@ -208,8 +208,8 @@ func Initialize(
 	asserter, err := asserter.NewClientWithOptions(
 		config.Network,
 		config.GenesisBlockIdentifier,
-		bitcoin.OperationTypes,
-		bitcoin.OperationStatuses,
+		cari.OperationTypes,
+		cari.OperationStatuses,
 		services.Errors,
 		nil,
 		new(asserter.Validations),
@@ -251,7 +251,7 @@ func Initialize(
 	return i, nil
 }
 
-// waitForNode returns once bitcoind is ready to serve
+// waitForNode returns once carid is ready to serve
 // block queries.
 func (i *Indexer) waitForNode(ctx context.Context) error {
 	logger := utils.ExtractLogger(ctx, "indexer")
@@ -261,15 +261,15 @@ func (i *Indexer) waitForNode(ctx context.Context) error {
 			return nil
 		}
 
-		logger.Infow("waiting for bitcoind...")
+		logger.Infow("waiting for carid...")
 		if err := sdkUtils.ContextSleep(ctx, nodeWaitSleep); err != nil {
 			return err
 		}
 	}
 }
 
-// Sync attempts to index Bitcoin blocks using
-// the bitcoin.Client until stopped.
+// Sync attempts to index CARI blocks using
+// the cari.Client until stopped.
 func (i *Indexer) Sync(ctx context.Context) error {
 	if err := i.waitForNode(ctx); err != nil {
 		return fmt.Errorf("%w: failed to wait for node", err)
@@ -302,7 +302,7 @@ func (i *Indexer) Sync(ctx context.Context) error {
 	return syncer.Sync(ctx, startIndex, indexPlaceholder)
 }
 
-// Prune attempts to prune blocks in bitcoind every
+// Prune attempts to prune blocks in carid every
 // pruneFrequency.
 func (i *Indexer) Prune(ctx context.Context) error {
 	logger := utils.ExtractLogger(ctx, "pruner")
@@ -321,25 +321,25 @@ func (i *Indexer) Prune(ctx context.Context) error {
 				continue
 			}
 
-			// Must meet pruning conditions in bitcoin core
+			// Must meet pruning conditions in cari core
 			// Source:
-			// https://github.com/bitcoin/bitcoin/blob/a63a26f042134fa80356860c109edb25ac567552/src/rpc/blockchain.cpp#L953-L960
+			// https://github.com/cari/cari/blob/a63a26f042134fa80356860c109edb25ac567552/src/rpc/blockchain.cpp#L953-L960
 			pruneHeight := head.Index - i.pruningConfig.Depth
 			if pruneHeight <= i.pruningConfig.MinHeight {
 				logger.Infow("waiting to prune", "min prune height", i.pruningConfig.MinHeight)
 				continue
 			}
 
-			logger.Infow("attempting to prune bitcoind", "prune height", pruneHeight)
+			logger.Infow("attempting to prune carid", "prune height", pruneHeight)
 			prunedHeight, err := i.client.PruneBlockchain(ctx, pruneHeight)
 			if err != nil {
 				logger.Warnw(
-					"unable to prune bitcoind",
+					"unable to prune carid",
 					"prune height", pruneHeight,
 					"error", err,
 				)
 			} else {
-				logger.Infow("pruned bitcoind", "prune height", prunedHeight)
+				logger.Infow("pruned carid", "prune height", prunedHeight)
 			}
 		}
 	}
@@ -531,7 +531,7 @@ func (i *Indexer) NetworkStatus(
 
 func (i *Indexer) findCoin(
 	ctx context.Context,
-	btcBlock *bitcoin.Block,
+	cariBlock *cari.Block,
 	coinIdentifier string,
 ) (*types.Coin, *types.AccountIdentifier, error) {
 	for ctx.Err() == nil {
@@ -603,16 +603,16 @@ func (i *Indexer) findCoin(
 
 		// Put Transaction in WaitTable if doesn't already exist (could be
 		// multiple listeners)
-		transactionHash := bitcoin.TransactionHash(coinIdentifier)
+		transactionHash := cari.TransactionHash(coinIdentifier)
 		val, ok := i.waiter.Get(transactionHash, false)
 		if !ok {
 			val = &waitTableEntry{
 				channel:       make(chan struct{}),
-				earliestBlock: btcBlock.Height,
+				earliestBlock: cariBlock.Height,
 			}
 		}
-		if val.earliestBlock > btcBlock.Height {
-			val.earliestBlock = btcBlock.Height
+		if val.earliestBlock > cariBlock.Height {
+			val.earliestBlock = cariBlock.Height
 		}
 		val.listeners++
 		i.waiter.Set(transactionHash, val, false)
@@ -626,7 +626,7 @@ func (i *Indexer) findCoin(
 
 func (i *Indexer) checkHeaderMatch(
 	ctx context.Context,
-	btcBlock *bitcoin.Block,
+	cariBlock *cari.Block,
 ) error {
 	headBlock, err := i.blockStorage.GetHeadBlockIdentifier(ctx)
 	if err != nil && !errors.Is(err, storageErrs.ErrHeadBlockNotFound) {
@@ -636,8 +636,8 @@ func (i *Indexer) checkHeaderMatch(
 	// If block we are trying to process is next but it is not connected, we
 	// should return syncer.ErrOrphanHead to manually trigger a reorg.
 	if headBlock != nil &&
-		btcBlock.Height == headBlock.Index+1 &&
-		btcBlock.PreviousBlockHash != headBlock.Hash {
+		cariBlock.Height == headBlock.Index+1 &&
+		cariBlock.PreviousBlockHash != headBlock.Hash {
 		return syncer.ErrOrphanHead
 	}
 
@@ -646,10 +646,10 @@ func (i *Indexer) checkHeaderMatch(
 
 func (i *Indexer) findCoins(
 	ctx context.Context,
-	btcBlock *bitcoin.Block,
+	cariBlock *cari.Block,
 	coins []string,
 ) (map[string]*types.AccountCoin, error) {
-	if err := i.checkHeaderMatch(ctx, btcBlock); err != nil {
+	if err := i.checkHeaderMatch(ctx, cariBlock); err != nil {
 		return nil, fmt.Errorf("%w: check header match failed", err)
 	}
 
@@ -658,7 +658,7 @@ func (i *Indexer) findCoins(
 	for _, coinIdentifier := range coins {
 		coin, owner, err := i.findCoin(
 			ctx,
-			btcBlock,
+			cariBlock,
 			coinIdentifier,
 		)
 		if err == nil {
@@ -685,7 +685,7 @@ func (i *Indexer) findCoins(
 	shouldAbort := false
 	for _, coinIdentifier := range remainingCoins {
 		// Wait on Channel
-		txHash := bitcoin.TransactionHash(coinIdentifier)
+		txHash := cari.TransactionHash(coinIdentifier)
 		entry, ok := i.waiter.Get(txHash, true)
 		if !ok {
 			return nil, fmt.Errorf("transaction %s not in waiter", txHash)
@@ -728,7 +728,7 @@ func (i *Indexer) findCoins(
 	// In the case of a reorg, we may still not be able to find
 	// the transactions. So, we need to repeat this same process
 	// recursively until we find the transactions we are looking for.
-	foundCoins, err := i.findCoins(ctx, btcBlock, remainingCoins)
+	foundCoins, err := i.findCoins(ctx, cariBlock, remainingCoins)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to get remaining transactions", err)
 	}
@@ -747,13 +747,13 @@ func (i *Indexer) Block(
 	blockIdentifier *types.PartialBlockIdentifier,
 ) (*types.Block, error) {
 	// get raw block
-	var btcBlock *bitcoin.Block
+	var cariBlock *cari.Block
 	var coins []string
 	var err error
 
 	retries := 0
 	for ctx.Err() == nil {
-		btcBlock, coins, err = i.client.GetRawBlock(ctx, blockIdentifier)
+		cariBlock, coins, err = i.client.GetRawBlock(ctx, blockIdentifier)
 		if err == nil {
 			break
 		}
@@ -769,13 +769,13 @@ func (i *Indexer) Block(
 	}
 
 	// determine which coins must be fetched and get from coin storage
-	coinMap, err := i.findCoins(ctx, btcBlock, coins)
+	coinMap, err := i.findCoins(ctx, cariBlock, coins)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to find input transactions", err)
 	}
 
 	// provide to block parsing
-	block, err := i.client.ParseBlock(ctx, btcBlock, coinMap)
+	block, err := i.client.ParseBlock(ctx, cariBlock, coinMap)
 	if err != nil {
 		return nil, fmt.Errorf("%w: unable to parse block %+v", err, blockIdentifier)
 	}
@@ -795,14 +795,14 @@ func (i *Indexer) Block(
 func (i *Indexer) GetScriptPubKeys(
 	ctx context.Context,
 	coins []*types.Coin,
-) ([]*bitcoin.ScriptPubKey, error) {
+) ([]*cari.ScriptPubKey, error) {
 	databaseTransaction := i.database.ReadTransaction(ctx)
 	defer databaseTransaction.Discard(ctx)
 
-	scripts := make([]*bitcoin.ScriptPubKey, len(coins))
+	scripts := make([]*cari.ScriptPubKey, len(coins))
 	for j, coin := range coins {
 		coinIdentifier := coin.CoinIdentifier
-		transactionHash, networkIndex, err := bitcoin.ParseCoinIdentifier(coinIdentifier)
+		transactionHash, networkIndex, err := cari.ParseCoinIdentifier(coinIdentifier)
 		if err != nil {
 			return nil, fmt.Errorf("%w: unable to parse coin identifier", err)
 		}
@@ -821,7 +821,7 @@ func (i *Indexer) GetScriptPubKeys(
 		}
 
 		for _, op := range transaction.Operations {
-			if op.Type != bitcoin.OutputOpType {
+			if op.Type != cari.OutputOpType {
 				continue
 			}
 
@@ -829,7 +829,7 @@ func (i *Indexer) GetScriptPubKeys(
 				continue
 			}
 
-			var opMetadata bitcoin.OperationMetadata
+			var opMetadata cari.OperationMetadata
 			if err := types.UnmarshalMap(op.Metadata, &opMetadata); err != nil {
 				return nil, fmt.Errorf(
 					"%w: unable to unmarshal operation metadata %+v",

@@ -17,14 +17,14 @@ package services
 import (
 	"context"
 
-	"github.com/coinbase/rosetta-bitcoin/bitcoin"
+	"github.com/coinbase/rosetta-cari/cari"
 
 	"github.com/coinbase/rosetta-sdk-go/types"
 )
 
 const (
 	// NodeVersion is the version of
-	// bitcoin core we are using.
+	// cari core we are using.
 	NodeVersion = "0.20.1"
 
 	// HistoricalBalanceLookup indicates
@@ -41,7 +41,7 @@ const (
 	inlineFetchLimit = 100
 
 	// MiddlewareVersion is the version
-	// of rosetta-bitcoin. We set this as a
+	// of rosetta-cari. We set this as a
 	// variable instead of a constant because
 	// we typically need the pointer of this
 	// value.
@@ -75,7 +75,7 @@ type Indexer interface {
 	GetScriptPubKeys(
 		context.Context,
 		[]*types.Coin,
-	) ([]*bitcoin.ScriptPubKey, error)
+	) ([]*cari.ScriptPubKey, error)
 	GetBalance(
 		context.Context,
 		*types.AccountIdentifier,
@@ -86,7 +86,7 @@ type Indexer interface {
 
 type unsignedTransaction struct {
 	Transaction    string                  `json:"transaction"`
-	ScriptPubKeys  []*bitcoin.ScriptPubKey `json:"scriptPubKeys"`
+	ScriptPubKeys  []*cari.ScriptPubKey `json:"scriptPubKeys"`
 	InputAmounts   []string                `json:"input_amounts"`
 	InputAddresses []string                `json:"input_addresses"`
 }
@@ -98,7 +98,7 @@ type preprocessOptions struct {
 }
 
 type constructionMetadata struct {
-	ScriptPubKeys []*bitcoin.ScriptPubKey `json:"script_pub_keys"`
+	ScriptPubKeys []*cari.ScriptPubKey `json:"script_pub_keys"`
 }
 
 type signedTransaction struct {
@@ -109,5 +109,5 @@ type signedTransaction struct {
 // ParseOperationMetadata is returned from
 // ConstructionParse.
 type ParseOperationMetadata struct {
-	ScriptPubKey *bitcoin.ScriptPubKey `json:"scriptPubKey"`
+	ScriptPubKey *cari.ScriptPubKey `json:"scriptPubKey"`
 }

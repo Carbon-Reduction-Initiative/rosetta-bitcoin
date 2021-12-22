@@ -25,7 +25,7 @@ var (
 		ErrUnimplemented,
 		ErrUnavailableOffline,
 		ErrNotReady,
-		ErrBitcoind,
+		ErrCARId,
 		ErrBlockNotFound,
 		ErrUnableToDerive,
 		ErrUnclearIntent,
@@ -57,19 +57,19 @@ var (
 		Message: "Endpoint unavailable offline",
 	}
 
-	// ErrNotReady is returned when bitcoind is not
+	// ErrNotReady is returned when carid is not
 	// yet ready to serve queries.
 	ErrNotReady = &types.Error{
 		Code:      2, //nolint
-		Message:   "Bitcoind is not ready",
+		Message:   "CARId is not ready",
 		Retriable: true,
 	}
 
-	// ErrBitcoind is returned when bitcoind
+	// ErrCARId is returned when carid
 	// errors on a request.
-	ErrBitcoind = &types.Error{
+	ErrCARId = &types.Error{
 		Code:    3, //nolint
-		Message: "Bitcoind error",
+		Message: "CARId error",
 	}
 
 	// ErrBlockNotFound is returned when a block
@@ -104,7 +104,7 @@ var (
 
 	// ErrScriptPubKeysMissing is returned when
 	// the indexer cannot populate the required
-	// bitcoin.ScriptPubKeys to construct a transaction.
+	// cari.ScriptPubKeys to construct a transaction.
 	ErrScriptPubKeysMissing = &types.Error{
 		Code:    8, //nolint
 		Message: "Missing ScriptPubKeys",
@@ -125,7 +125,7 @@ var (
 	}
 
 	// ErrUnableToDecodeScriptPubKey is returned when a
-	// bitcoin.ScriptPubKey cannot be parsed during construction.
+	// cari.ScriptPubKey cannot be parsed during construction.
 	ErrUnableToDecodeScriptPubKey = &types.Error{
 		Code:    11, //nolint
 		Message: "Unable to decode ScriptPubKey",

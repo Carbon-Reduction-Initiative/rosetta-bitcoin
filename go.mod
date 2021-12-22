@@ -1,4 +1,4 @@
-module github.com/coinbase/rosetta-bitcoin
+module github.com/coinbase/rosetta-cari
 
 go 1.16
 
