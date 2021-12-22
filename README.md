@@ -88,7 +88,7 @@ a data directory at `<working directory>/cari-data` and the Rosetta API accessib
 
 #### Mainnet:Online
 ```text
-docker run -d --rm --ulimit "nofile=100000:100000" -v "$(pwd)/cari-data:/data" -e "MODE=ONLINE" -e "NETWORK=MAINNET" -e "PORT=8080" -p 8080:8080 -p 8333:8333 rosetta-cari:latest
+docker run -d --rm --ulimit "nofile=100000:100000" -v "$(pwd)/cari-data:/data" -e "MODE=ONLINE" -e "NETWORK=MAINNET" -e "PORT=8080" -p 8080:8080 -p 31813:31813 rosetta-cari:latest
 ```
 _If you cloned the repository, you can run `make run-mainnet-online`._
 
@@ -100,7 +100,7 @@ _If you cloned the repository, you can run `make run-mainnet-offline`._
 
 #### Testnet:Online
 ```text
-docker run -d --rm --ulimit "nofile=100000:100000" -v "$(pwd)/cari-data:/data" -e "MODE=ONLINE" -e "NETWORK=TESTNET" -e "PORT=8080" -p 8080:8080 -p 18333:18333 rosetta-cari:latest
+docker run -d --rm --ulimit "nofile=100000:100000" -v "$(pwd)/cari-data:/data" -e "MODE=ONLINE" -e "NETWORK=TESTNET" -e "PORT=8080" -p 8080:8080 -p 31815:31815 rosetta-cari:latest
 ```
 _If you cloned the repository, you can run `make run-testnet-online`._
 

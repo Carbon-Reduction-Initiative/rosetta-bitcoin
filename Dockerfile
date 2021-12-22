@@ -21,20 +21,23 @@ WORKDIR /app
 
 # Source: https://github.com/cari/cari/blob/master/doc/build-unix.md#ubuntu--debian
 RUN apt-get update && apt-get install -y make gcc g++ autoconf autotools-dev bsdmainutils build-essential git libboost-all-dev \
-  libcurl4-openssl-dev libdb++-dev libevent-dev libssl-dev libtool pkg-config python python-pip libzmq3-dev wget
+  libcurl4-openssl-dev libdb++-dev libevent-dev libssl-dev libtool pkg-config python python-pip libzmq3-dev wget \
+  libgmp-dev libsodium-dev cargo
 
 # VERSION: CARI Core 0.20.1
-RUN git clone https://github.com/cari/cari \
-  && cd cari \
-  && git checkout 7ff64311bee570874c4f0dfa18f518552188df08
+RUN git clone https://github.com/Carbon-Reduction-Initiative/CARI \
+  && cd CARI \
+  && git checkout ff7e8d4d67628aa1a833d338704b37c3d8188aaa
 
-RUN cd cari \
+RUN cd CARI \
   && ./autogen.sh \
-  && ./configure --disable-tests --without-miniupnpc --without-gui --with-incompatible-bdb --disable-hardening --disable-zmq --disable-bench --disable-wallet \
+  && ./configure --disable-tests --without-miniupnpc --without-gui --with-incompatible-bdb --disable-hardening --disable-zmq --disable-bench \
   && make
 
-RUN mv cari/src/carid /app/carid \
-  && rm -rf cari
+RUN mv CARI/src/carid /app/carid \
+  && strip /app/carid \
+  && mv CARI/util/fetch-params.sh /app/fetch-params.sh \
+  && rm -rf CARI
 
 # Build Rosetta Server Components
 FROM ubuntu:18.04 as rosetta-builder
@@ -58,19 +61,20 @@ ENV PATH $GOPATH/bin:/usr/local/go/bin:$PATH
 RUN mkdir -p "$GOPATH/src" "$GOPATH/bin" && chmod -R 777 "$GOPATH"
 
 # Use native remote build context to build in any directory
-COPY . src 
+COPY . src
 RUN cd src \
   && go build \
   && cd .. \
   && mv src/rosetta-cari /app/rosetta-cari \
   && mv src/assets/* /app \
-  && rm -rf src 
+  && rm -rf src
 
 ## Build Final Image
 FROM ubuntu:18.04
 
 RUN apt-get update && \
-  apt-get install --no-install-recommends -y libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev libboost-thread-dev && \
+  apt-get install --no-install-recommends -y libevent-dev libboost-system-dev libboost-filesystem-dev libboost-test-dev libboost-thread-dev \
+  libboost-program-options-dev libdb++-dev libsodium-dev cargo wget ca-certificates && \
   apt-get clean && rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
 
 RUN mkdir -p /app \
@@ -81,7 +85,7 @@ RUN mkdir -p /app \
 WORKDIR /app
 
 # Copy binary from carid-builder
-COPY --from=carid-builder /app/carid /app/carid
+COPY --from=carid-builder /app/* /app/
 
 # Copy binary from rosetta-builder
 COPY --from=rosetta-builder /app/* /app/
@@ -89,4 +93,5 @@ COPY --from=rosetta-builder /app/* /app/
 # Set permissions for everything added to /app
 RUN chmod -R 755 /app/*
 
+RUN /app/fetch-params.sh
 CMD ["/app/rosetta-cari"]

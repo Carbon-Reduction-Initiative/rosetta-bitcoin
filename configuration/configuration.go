@@ -61,8 +61,8 @@ const (
 	testnetTransactionDictionary = "/app/testnet-transaction.zstd"
 	mainnetTransactionDictionary = "/app/mainnet-transaction.zstd"
 
-	mainnetRPCPort = 8332
-	testnetRPCPort = 18332
+	mainnetRPCPort = 31814
+	testnetRPCPort = 51475
 
 	// min prune depth is 288:
 	// https://github.com/cari/cari/blob/ad2952d17a2af419a04256b10b53c7377f826a27/src/validation.h#L84
